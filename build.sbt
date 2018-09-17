@@ -25,17 +25,29 @@ val sharedSettings = Seq(
 
 parallelExecution in Test := true
 
-val algezebraCore = Project(
-  id = "algezebra-core",
-  base = file("algezebra-core"))
+lazy val algezebraCore: Project = project
+  .in(file("algezebra-core"))
   .settings(sharedSettings)
+  .settings(
+    name := "noether-core",
+    moduleName := "noether-core",
+    description := "Machine Learning Aggregators",
+    libraryDependencies ++= Seq(
+      "com.twitter" %% "algebird-core" % "0.13.4",
+      "org.scalatest" %% "scalatest" % scalaTestVersion,
+"com.googlecode.javaewah" % "JavaEWAH" % javaEwahVersion,
+"org.scalacheck" %% "scalacheck" % scalacheckVersion
+    ),
+    fork in Test := true
+  )
 
-
-val algezebraBenchmark = Project(
-  id = "algezebra-benchmark",
-  base = file("algezebra-benchmark"))
-  .settings(sharedSettings).enablePlugins(JmhPlugin)
-
+lazy val algezebraBenchmark = project
+  .in(file("algezebra-benchmark"))
+  .settings(JmhPlugin.projectSettings: _*)
+  .settings(sharedSettings)
+  .settings(coverageExcludedPackages := "com\\.github\\.cesarcolle\\.algezebra-benchmark.*")
+  .dependsOn(algezebraCore)
+  .enablePlugins(JmhPlugin)
 
 val algebra = Project(
   id = "algebra",
@@ -43,18 +55,3 @@ val algebra = Project(
     .settings(sharedSettings)
   .settings(coverageExcludedPackages := "<empty>;.*\\.benchmark\\..*")
   .aggregate(algezebraCore, algezebraBenchmark)
-
-
-libraryDependencies += "com.twitter" %% "algebird-core" % "0.13.4"
-
-
-
-libraryDependencies ++=
-  Seq("com.googlecode.javaewah" % "JavaEWAH" % javaEwahVersion,
-    "org.typelevel" %% "algebra" % algebraVersion,
-    "org.scala-lang" % "scala-reflect" % scalaVersion.value,
-    "org.scalatest" %% "scalatest" % scalaTestVersion % "test")
-
-libraryDependencies ++=
-  Seq("org.scalacheck" %% "scalacheck" % scalacheckVersion,
-    "org.scalatest" %% "scalatest" % scalaTestVersion)
