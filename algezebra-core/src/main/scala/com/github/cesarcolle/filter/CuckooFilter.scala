@@ -382,7 +382,7 @@ case class CFInstance[A](hash: CFHash[A],
 /**
   * The hash class for cuckoo
   **/
-private[algebird] case class CFHash[A](totalBuckets: Int)(implicit hash: Hash128[A]) {
+case class CFHash[A](totalBuckets: Int)(implicit hash: Hash128[A]) {
 
   implicit val hashfp: Hash128[Int] = new Hash128[Int] {
     override def DefaultSeed: Long = 56478
