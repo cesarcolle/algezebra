@@ -1,9 +1,8 @@
-package com.github.cesarcolle
+package com.github.cesarcolle.sketch
 
-
-import com.twitter.algebird.{CMS, CMSMonoid}
+import com.github.cesarcolle._
 import com.twitter.algebird.CMSInstance.CountsTable
-import org.scalacheck.Prop.forAll
+import com.twitter.algebird.CMSMonoid
 import org.scalacheck.{Arbitrary, Gen}
 import org.scalatest.{Matchers, WordSpec}
 

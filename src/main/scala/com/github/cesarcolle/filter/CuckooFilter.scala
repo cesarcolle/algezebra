@@ -1,5 +1,4 @@
-package com.github.cesarcolle
-
+package com.github.cesarcolle.filter
 
 import algebra.BoundedSemilattice
 import com.googlecode.javaewah.{IntIterator, EWAHCompressedBitmap => CBitSet}

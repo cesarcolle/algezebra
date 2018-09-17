@@ -1,10 +1,6 @@
-package com.github.cesarcolle
-
+package com.github.cesarcolle.filter
 
 import com.googlecode.javaewah.{EWAHCompressedBitmap => CBitSet}
-
-import org.scalacheck.Prop.forAll
-import org.scalacheck.{Arbitrary, Gen}
 import org.scalatest.{Matchers, WordSpec}
 
 object CuckooTestUtils {

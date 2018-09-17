@@ -1,4 +1,5 @@
-package com.github.cesarcolle
+package com.github.cesarcolle.sketch
+
 import cats.kernel.CommutativeMonoid
 import com.twitter.algebird.CMSInstance.CountsTable
 import com.twitter.algebird._
