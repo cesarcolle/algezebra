@@ -25,13 +25,24 @@ val sharedSettings = Seq(
 
 parallelExecution in Test := true
 
+val algezebraCore = Project(
+  id = "algezebra-core",
+  base = file("algezebra-core"))
+  .settings(sharedSettings)
+
+
+val algezebraBenchmark = Project(
+  id = "algezebra-benchmark",
+  base = file("algezebra-benchmark"))
+  .settings(sharedSettings).enablePlugins(JmhPlugin)
+
+
 val algebra = Project(
   id = "algebra",
   base = file("."))
     .settings(sharedSettings)
   .settings(coverageExcludedPackages := "<empty>;.*\\.benchmark\\..*")
-
-
+  .aggregate(algezebraCore, algezebraBenchmark)
 
 
 libraryDependencies += "com.twitter" %% "algebird-core" % "0.13.4"
