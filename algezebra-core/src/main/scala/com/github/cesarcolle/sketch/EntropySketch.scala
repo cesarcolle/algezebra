@@ -40,6 +40,7 @@ class EntropySketchMonoid[A: CMSHasher](eps : Double, seed: Long) extends Monoid
 case class EntropySketchParams[K: CMSHasher](eps : Double) {
 
   val k : Int = (1 / Math.pow(eps, 2)).toInt
+
   // proper hashing.
   val a: Int = Random.nextInt().abs
   val b: Int = Random.nextInt().abs
@@ -99,7 +100,7 @@ case class ESInstances[A](params: EntropySketchParams[A],  override val count : 
 
   override def entropy(): Double = {
     val sum = countTable.table.map(d => Math.exp(d / count)).sum
-    -(Math.log(sum / params.k) / Math.log(2))
+    -(Math.log(sum / params.k.toDouble) / Math.log(2))
   }
 
   /**

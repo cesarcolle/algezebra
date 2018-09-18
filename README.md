@@ -6,13 +6,13 @@ Nobody exactly know.. Perhaps a zebra implementing operator like | or || or ...
 famous algorithm in abstract algebra with cats and Algebird
 
 # List of algorithms
-##Sketch
+## Sketch
 
 * [AMS](http://dimacs.rutgers.edu/%7Egraham/pubs/papers/encalgs-ams.pdf)
 * [Frequent (What's hot and what's not)](https://www.cs.princeton.edu/courses/archive/spr04/cos598B/bib/CormodeM-hot.pdf)
 * [Entropy sketch](http://proceedings.mlr.press/v31/clifford13a.pdf)
 
-##Filter
+## Filter
 
 * [Cuckoo Filter](https://www.cs.cmu.edu/~dga/papers/cuckoo-conext2014.pdf)
 
