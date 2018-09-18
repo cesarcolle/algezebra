@@ -49,8 +49,8 @@ lazy val algezebraBenchmark = project
   .dependsOn(algezebraCore)
   .enablePlugins(JmhPlugin)
 
-val algebra = Project(
-  id = "algebra",
+val algezebra = Project(
+  id = "algezebra",
   base = file("."))
     .settings(sharedSettings)
   .settings(coverageExcludedPackages := "<empty>;.*\\.benchmark\\..*")

@@ -1,5 +1,6 @@
 package com.github.cesarcolle.sketch
 
+import com.github.cesarcolle.sketch.ESInstances.Count1DTable
 import com.twitter.algebird.CMSInstance.CountsTable
 import com.twitter.algebird.{CMSHasher, Monoid}
 
@@ -16,6 +17,12 @@ import com.twitter.algebird.{CMSHasher, Monoid}
   * O(eps**-2 log(T) ) randoms bits for space.
   * */
 
+trait EntropyCounting {
+
+  def width(eps : Double)
+
+}
+
 class EntropySketchMonoid[A : CMSHasher](k : Int, seed : Long) extends Monoid[ES[A]]{
 
   override def zero: ES[A] = ???
@@ -26,20 +33,68 @@ class EntropySketchMonoid[A : CMSHasher](k : Int, seed : Long) extends Monoid[ES
 
 
 case class EntropySketchParams[A]() {
+  val k : Int = 0
+}
 
+sealed abstract class ES[A] {
+  def +(other : ES[A])
+  def ++(other : ES[A])
+  def entropy() : Double
 
 }
 
-sealed abstract class ES[A] {}
-
 case class ESItem[A](item : A, params : EntropySketchParams[A]) extends ES[A] {
+  override def +(other: ES[A]): Unit = ???
+
+  override def ++(other: ES[A]): Unit = ???
+
+  override def entropy(): Double = ???
 }
 
 case class ESZero[A](params : EntropySketchParams[A]) extends ES[A] {
+  override def +(other: ES[A]): Unit = ???
+
+  override def ++(other: ES[A]): Unit = ???
+
+  override def entropy(): Double = ???
 }
 
-case class ESInstances[A](countTable : CountsTable[A], params : EntropySketchParams[A]) extends ES[A] {
+
+case class ESInstances[A](params : EntropySketchParams[A], countable : Count1DTable[A]) extends ES[A] {
+  override def +(other: ES[A]): Unit = ???
+
+  override def ++(other: ES[A]): Unit = ???
+
+  override def entropy(): Double = ???
 }
 
+object ESInstances {
+  def apply[A](params : EntropySketchParams[A]): ESInstances[A] ={
+    ESInstances(params, Count1DTable(params.k))
+  }
+
+
+  case class Count1DTable[A](table: Vector[Long]) {
+
+    def size = table.size
+
+    def getCount(index : Int) : Long = ???
+
+    def +(index : Int, count : Long) : Count1DTable[A] = {
+      val oldCOunt = table(index)
+      Count1DTable(table.updated(index, oldCOunt + count))
+    }
+    def ++(other : Count1DTable[A]): Count1DTable[A] = {
+      require(size == other.size, "can't merge two differentes countTable")
+      val newTable = table.zipWithIndex.map(f => f._1 + other.getCount(f._2))
+      Count1DTable[A](newTable)
+    }
+
+  }
+  object Count1DTable{
+    def apply[A](size : Int): Count1DTable[A] = Count1DTable[A](Vector.fill[Long](size)(0L))
+  }
+
+}
 
 
