@@ -1,7 +1,9 @@
 package com.github.cesarcolle.sketch
 
 import com.github.cesarcolle.sketch.ESInstances.Count1DTable
-import com.twitter.algebird.{CMSHasher, Monoid}
+import com.twitter.algebird.{CMSHash, CMSHasher, Monoid}
+
+import scala.util.Random
 
 /**
   * From the paper : http://proceedings.mlr.press/v31/clifford13a.pdf
@@ -14,6 +16,8 @@ import com.twitter.algebird.{CMSHasher, Monoid}
   *
   * Determine the entropy of a stream with :
   * O(eps**-2 log(T) ) randoms bits for space.
+  *
+  * We are interest here to maintain entropy value.
   **/
 
 trait EntropyCounting {
@@ -30,8 +34,13 @@ class EntropySketchMonoid[A: CMSHasher](k: Int, seed: Long) extends Monoid[ES[A]
 }
 
 
-case class EntropySketchParams[A]() {
+case class EntropySketchParams[K : CMSHasher]() {
   val k: Int = 0
+  val a: Int = Random.nextInt().abs
+  val b: Int = Random.nextInt().abs
+  def hash(): CMSHash[K] =
+    CMSHash[K](a, b, Int.MaxValue)
+
 }
 
 sealed abstract class ES[A] {
@@ -45,7 +54,7 @@ sealed abstract class ES[A] {
 
 case class ESZero[A](params: EntropySketchParams[A]) extends ES[A] {
 
-  override def ++(other: ES[A]): Unit = ???
+  override def ++(other: ES[A]): Unit = other
 
   override def entropy(): Double = 0.0
 
@@ -56,9 +65,9 @@ case class ESZero[A](params: EntropySketchParams[A]) extends ES[A] {
 case class ESItem[A](item: A, count: Long, params: EntropySketchParams[A]) extends ES[A] {
 
   override def ++(other: ES[A]): Unit = other match {
-    case ESZero(_) => this
+    case ESZero(_) =>
     case other@ESItem(_, _, _) => this + (other.item, other.count)
-    case ESInstances(_, _) => ???
+    case other@ESInstances(_, _, _) => other + (item, count)
   }
 
   override def entropy(): Double = -(Math.log(count) / Math.log(2.0))
@@ -66,28 +75,63 @@ case class ESItem[A](item: A, count: Long, params: EntropySketchParams[A]) exten
   override def +(item: A, count: Long): ES[A] = ESInstances[A](params) + (this.item, this.count) + (item, count)
 }
 
-case class ESInstances[A](params: EntropySketchParams[A], countable: Count1DTable[A]) extends ES[A] {
+case class ESInstances[A](params: EntropySketchParams[A], count : Long, countTable: Count1DTable[A]) extends ES[A] {
 
-  override def ++(other: ES[A]): Unit = ???
+  override def ++(other: ES[A]): Unit = other match {
+    case ESZero(_) => this
+    case ESItem(it,c, _ ) => this + (it, c)
+    case other @ ESInstances(prms, cnt, cTable ) =>
+      require(prms == this.params)
+      ESInstances(params, cnt + count, countTable ++ cTable)
+  }
 
   override def entropy(): Double = ???
 
-  override def +(item: A, count: Long): ES[A] = ???
+  /**
+    * Add item to the sketch.
+    * */
+  override def +(item: A, count: Long): ES[A] = {
+    val it = params.hash().apply(item)
+    val newTable =
+    (0 until params.k).foldLeft(countTable){
+      (table, j) =>
+        val skew = maxSkew()
+        table + (j, skew * count)
+    }
+    new ESInstances[A](params, this.count + count, newTable)
+  }
+
+    /**
+    * from : http://proceedings.mlr.press/v31/clifford13a.pdf p 198 (or p 3 of the pdf file)
+    * Table 1 : Algorithm to simulate from the maximally skewed stable distribution F(x; 1, -1, PI / 2 , 0)
+    * */
+  private def maxSkew() : Double = {
+
+    val r1 = Random.nextDouble()
+    val r2 = Random.nextDouble()
+
+    val w1 = Math.PI * (r1 * 0.5)
+    val w2 = Math.PI * (r2 * 0.5)
+
+    val halfPiW1 = Math.PI / 2 - w1
+
+    Math.tan(w1) * halfPiW1 + (Math.log(w2 * (Math.cos(w1) / halfPiW1)) / Math.log(2))
+  }
 }
 
 object ESInstances {
   def apply[A](params: EntropySketchParams[A]): ESInstances[A] = {
-    ESInstances(params, Count1DTable(params.k))
+    ESInstances(params,0 ,  Count1DTable(params.k))
   }
 
 
-  case class Count1DTable[A](table: Vector[Long]) {
+  case class Count1DTable[A](table: Vector[Double]) {
 
     def size = table.size
 
-    def getCount(index: Int): Long = ???
+    def getCount(index: Int): Double = table(index)
 
-    def +(index: Int, count: Long): Count1DTable[A] = {
+    def +(index: Int, count: Double): Count1DTable[A] = {
       val oldCount = table(index)
       Count1DTable(table.updated(index, oldCount + count))
     }
@@ -100,7 +144,7 @@ object ESInstances {
   }
 
   object Count1DTable {
-    def apply[A](size: Int): Count1DTable[A] = Count1DTable[A](Vector.fill[Long](size)(0L))
+    def apply[A](size: Int): Count1DTable[A] = Count1DTable[A](Vector.fill[Double](size)(0L))
   }
 
 }
