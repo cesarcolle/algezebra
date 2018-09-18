@@ -27,16 +27,20 @@ trait EntropyCounting {
 
 }
 
-class EntropySketchMonoid[A: CMSHasher](k: Int, seed: Long) extends Monoid[ES[A]] {
+class EntropySketchMonoid[A: CMSHasher](eps : Double, seed: Long) extends Monoid[ES[A]] {
 
-  override def zero: ES[A] = ???
+  val params = EntropySketchParams(eps)
 
-  override def plus(x: ES[A], y: ES[A]): ES[A] = ???
+  override def zero: ES[A] = ESZero[A](params, 0)
+
+  override def plus(x: ES[A], y: ES[A]): ES[A] = x ++ y
 }
 
 
-case class EntropySketchParams[K: CMSHasher]() {
-  val k: Int = 0
+case class EntropySketchParams[K: CMSHasher](eps : Double) {
+
+  val k : Int = (1 / Math.pow(eps, 2)).toInt
+  // proper hashing.
   val a: Int = Random.nextInt().abs
   val b: Int = Random.nextInt().abs
 
@@ -48,15 +52,17 @@ case class EntropySketchParams[K: CMSHasher]() {
 sealed abstract class ES[A] {
   def +(item: A, count: Long): ES[A]
 
-  def ++(other: ES[A])
+  def ++(other: ES[A]) : ES[A]
 
   def entropy(): Double
 
+  val count : Long
+
 }
 
-case class ESZero[A](params: EntropySketchParams[A]) extends ES[A] {
+case class ESZero[A](params: EntropySketchParams[A], override val count : Long) extends ES[A] {
 
-  override def ++(other: ES[A]): Unit = other
+  override def ++(other: ES[A]): ES[A] = other
 
   override def entropy(): Double = 0.0
 
@@ -64,10 +70,10 @@ case class ESZero[A](params: EntropySketchParams[A]) extends ES[A] {
 }
 
 
-case class ESItem[A](item: A, count: Long, params: EntropySketchParams[A]) extends ES[A] {
+case class ESItem[A](item: A,  override val count : Long, params: EntropySketchParams[A]) extends ES[A] {
 
-  override def ++(other: ES[A]): Unit = other match {
-    case ESZero(_) =>
+  override def ++(other: ES[A]): ES[A] = other match {
+    case ESZero(_, _) => this
     case other@ESItem(_, _, _) => this + (other.item, other.count)
     case other@ESInstances(_, _, _) => other + (item, count)
   }
@@ -77,10 +83,10 @@ case class ESItem[A](item: A, count: Long, params: EntropySketchParams[A]) exten
   override def +(item: A, count: Long): ES[A] = ESInstances[A](params) + (this.item, this.count) + (item, count)
 }
 
-case class ESInstances[A](params: EntropySketchParams[A], count: Long, countTable: Count1DTable[A]) extends ES[A] {
+case class ESInstances[A](params: EntropySketchParams[A],  override val count : Long, countTable: Count1DTable[A]) extends ES[A] {
 
-  override def ++(other: ES[A]): Unit = other match {
-    case ESZero(_) => this
+  override def ++(other: ES[A]): ES[A] = other match {
+    case ESZero(_, _) => this
     case ESItem(it, c, _) => this + (it, c)
     case other@ESInstances(prms, cnt, cTable) =>
       require(prms == this.params)
@@ -101,10 +107,11 @@ case class ESInstances[A](params: EntropySketchParams[A], count: Long, countTabl
     **/
   override def +(item: A, count: Long): ES[A] = {
     val it = params.hash().apply(item)
+    val rd = new Random(it)
     val newTable =
       (0 until params.k).foldLeft(countTable) {
         (table, j) =>
-          val skew = maxSkew()
+          val skew = maxSkew(rd)
           table + (j, skew * count)
       }
     new ESInstances[A](params, this.count + count, newTable)
@@ -114,10 +121,10 @@ case class ESInstances[A](params: EntropySketchParams[A], count: Long, countTabl
     * from : http://proceedings.mlr.press/v31/clifford13a.pdf p 198 (or p 3 of the pdf file)
     * Table 1 : Algorithm to simulate from the maximally skewed stable distribution F(x; 1, -1, PI / 2 , 0)
     **/
-  private def maxSkew(): Double = {
+  private def maxSkew(rand : Random): Double = {
 
-    val r1 = Random.nextDouble()
-    val r2 = Random.nextDouble()
+    val r1 = rand.nextDouble()
+    val r2 = rand.nextDouble()
 
     val w1 = Math.PI * (r1 * 0.5)
     val w2 = Math.PI * (r2 * 0.5)
@@ -136,7 +143,7 @@ object ESInstances {
 
   case class Count1DTable[A](table: Vector[Double]) {
 
-    def size = table.size
+    def size: Int = table.size
 
     def getCount(index: Int): Double = table(index)
 
@@ -153,7 +160,7 @@ object ESInstances {
   }
 
   object Count1DTable {
-    def apply[A](size: Int): Count1DTable[A] = Count1DTable[A](Vector.fill[Double](size)(0L))
+    def apply[A](size: Int): Count1DTable[A] = Count1DTable[A](Vector.fill[Double](size)(0.0))
   }
 
 }
