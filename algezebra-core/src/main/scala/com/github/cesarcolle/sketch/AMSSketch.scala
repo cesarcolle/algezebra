@@ -67,19 +67,16 @@ class AMSMonoid[K: CMSHasher](depth: Int, buckets: Int)
       var oneItem: AMSItem[K] = null
 
       @inline def addItem(it: AMSItem[K]): CountsTable[K] = {
+        val randoms = params.randoms
         sets += 1
         oneItem = it
         count += it.totalCount
         (0 until depth).foldLeft(countsTableMonoid) {
           case (table, j) =>
             val hash = params
-              .hash(params.randoms.head(j), params.randoms(1)(j), buckets)
+              .hash(randoms.head(j), randoms(1)(j), buckets)
               .apply(it.item)
-            val mult = AMSFunction.fourwise(
-              params.randoms(2)(j),
-              params.randoms(3)(j),
-              params.randoms(4)(j),
-              params.randoms(5)(j),
+            val mult = AMSFunction.fourwise(randoms(2)(j),randoms(3)(j),randoms(4)(j),randoms(5)(j),
               hash)
             if ((mult & 1) == 1) {
               table + ((j, hash), it.totalCount)
