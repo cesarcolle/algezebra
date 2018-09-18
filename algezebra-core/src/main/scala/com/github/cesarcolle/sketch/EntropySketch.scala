@@ -7,6 +7,7 @@ import scala.util.Random
 
 /**
   * From the paper : http://proceedings.mlr.press/v31/clifford13a.pdf
+
   *
   * In information theory, entropy is a measure of the uncertainty associated with a random variable.
   * The term by itself in this context usually refers to the Shannon entropy, which quantifies, in the sense of an expected value,
@@ -34,10 +35,11 @@ class EntropySketchMonoid[A: CMSHasher](k: Int, seed: Long) extends Monoid[ES[A]
 }
 
 
-case class EntropySketchParams[K : CMSHasher]() {
+case class EntropySketchParams[K: CMSHasher]() {
   val k: Int = 0
   val a: Int = Random.nextInt().abs
   val b: Int = Random.nextInt().abs
+
   def hash(): CMSHash[K] =
     CMSHash[K](a, b, Int.MaxValue)
 
@@ -75,37 +77,44 @@ case class ESItem[A](item: A, count: Long, params: EntropySketchParams[A]) exten
   override def +(item: A, count: Long): ES[A] = ESInstances[A](params) + (this.item, this.count) + (item, count)
 }
 
-case class ESInstances[A](params: EntropySketchParams[A], count : Long, countTable: Count1DTable[A]) extends ES[A] {
+case class ESInstances[A](params: EntropySketchParams[A], count: Long, countTable: Count1DTable[A]) extends ES[A] {
 
   override def ++(other: ES[A]): Unit = other match {
     case ESZero(_) => this
-    case ESItem(it,c, _ ) => this + (it, c)
-    case other @ ESInstances(prms, cnt, cTable ) =>
+    case ESItem(it, c, _) => this + (it, c)
+    case other@ESInstances(prms, cnt, cTable) =>
       require(prms == this.params)
       ESInstances(params, cnt + count, countTable ++ cTable)
   }
 
-  override def entropy(): Double = ???
+  /**
+    *Estimate the entropy of the stream.
+    */
+
+  override def entropy(): Double = {
+    val sum = countTable.table.map(d => Math.exp(d / count)).sum
+    -(Math.log(sum / params.k) / Math.log(2))
+  }
 
   /**
     * Add item to the sketch.
-    * */
+    **/
   override def +(item: A, count: Long): ES[A] = {
     val it = params.hash().apply(item)
     val newTable =
-    (0 until params.k).foldLeft(countTable){
-      (table, j) =>
-        val skew = maxSkew()
-        table + (j, skew * count)
-    }
+      (0 until params.k).foldLeft(countTable) {
+        (table, j) =>
+          val skew = maxSkew()
+          table + (j, skew * count)
+      }
     new ESInstances[A](params, this.count + count, newTable)
   }
 
-    /**
+  /**
     * from : http://proceedings.mlr.press/v31/clifford13a.pdf p 198 (or p 3 of the pdf file)
     * Table 1 : Algorithm to simulate from the maximally skewed stable distribution F(x; 1, -1, PI / 2 , 0)
-    * */
-  private def maxSkew() : Double = {
+    **/
+  private def maxSkew(): Double = {
 
     val r1 = Random.nextDouble()
     val r2 = Random.nextDouble()
@@ -121,7 +130,7 @@ case class ESInstances[A](params: EntropySketchParams[A], count : Long, countTab
 
 object ESInstances {
   def apply[A](params: EntropySketchParams[A]): ESInstances[A] = {
-    ESInstances(params,0 ,  Count1DTable(params.k))
+    ESInstances(params, 0, Count1DTable(params.k))
   }
 
 
