@@ -1,7 +1,6 @@
 package com.github.cesarcolle.sketch
 
 import com.github.cesarcolle.sketch.ESInstances.Count1DTable
-import com.twitter.algebird.CMSInstance.CountsTable
 import com.twitter.algebird.{CMSHasher, Monoid}
 
 /**
@@ -15,15 +14,15 @@ import com.twitter.algebird.{CMSHasher, Monoid}
   *
   * Determine the entropy of a stream with :
   * O(eps**-2 log(T) ) randoms bits for space.
-  * */
+  **/
 
 trait EntropyCounting {
 
-  def width(eps : Double)
+  def width(eps: Double)
 
 }
 
-class EntropySketchMonoid[A : CMSHasher](k : Int, seed : Long) extends Monoid[ES[A]]{
+class EntropySketchMonoid[A: CMSHasher](k: Int, seed: Long) extends Monoid[ES[A]] {
 
   override def zero: ES[A] = ???
 
@@ -31,45 +30,53 @@ class EntropySketchMonoid[A : CMSHasher](k : Int, seed : Long) extends Monoid[ES
 }
 
 
-
 case class EntropySketchParams[A]() {
-  val k : Int = 0
+  val k: Int = 0
 }
 
 sealed abstract class ES[A] {
-  def +(other : ES[A])
-  def ++(other : ES[A])
-  def entropy() : Double
+  def +(item: A, count: Long): ES[A]
+
+  def ++(other: ES[A])
+
+  def entropy(): Double
 
 }
 
-case class ESItem[A](item : A, params : EntropySketchParams[A]) extends ES[A] {
-  override def +(other: ES[A]): Unit = ???
+case class ESZero[A](params: EntropySketchParams[A]) extends ES[A] {
+
+  override def ++(other: ES[A]): Unit = ???
+
+  override def entropy(): Double = 0.0
+
+  override def +(item: A, count: Long): ES[A] = ESItem[A](item, count, params)
+}
+
+
+case class ESItem[A](item: A, count: Long, params: EntropySketchParams[A]) extends ES[A] {
+
+  override def ++(other: ES[A]): Unit = other match {
+    case ESZero(_) => this
+    case other@ESItem(_, _, _) => this + (other.item, other.count)
+    case ESInstances(_, _) => ???
+  }
+
+  override def entropy(): Double = -(Math.log(count) / Math.log(2.0))
+
+  override def +(item: A, count: Long): ES[A] = ESInstances[A](params) + (this.item, this.count) + (item, count)
+}
+
+case class ESInstances[A](params: EntropySketchParams[A], countable: Count1DTable[A]) extends ES[A] {
 
   override def ++(other: ES[A]): Unit = ???
 
   override def entropy(): Double = ???
-}
 
-case class ESZero[A](params : EntropySketchParams[A]) extends ES[A] {
-  override def +(other: ES[A]): Unit = ???
-
-  override def ++(other: ES[A]): Unit = ???
-
-  override def entropy(): Double = ???
-}
-
-
-case class ESInstances[A](params : EntropySketchParams[A], countable : Count1DTable[A]) extends ES[A] {
-  override def +(other: ES[A]): Unit = ???
-
-  override def ++(other: ES[A]): Unit = ???
-
-  override def entropy(): Double = ???
+  override def +(item: A, count: Long): ES[A] = ???
 }
 
 object ESInstances {
-  def apply[A](params : EntropySketchParams[A]): ESInstances[A] ={
+  def apply[A](params: EntropySketchParams[A]): ESInstances[A] = {
     ESInstances(params, Count1DTable(params.k))
   }
 
@@ -78,21 +85,22 @@ object ESInstances {
 
     def size = table.size
 
-    def getCount(index : Int) : Long = ???
+    def getCount(index: Int): Long = ???
 
-    def +(index : Int, count : Long) : Count1DTable[A] = {
-      val oldCOunt = table(index)
-      Count1DTable(table.updated(index, oldCOunt + count))
+    def +(index: Int, count: Long): Count1DTable[A] = {
+      val oldCount = table(index)
+      Count1DTable(table.updated(index, oldCount + count))
     }
-    def ++(other : Count1DTable[A]): Count1DTable[A] = {
-      require(size == other.size, "can't merge two differentes countTable")
+
+    def ++(other: Count1DTable[A]): Count1DTable[A] = {
+      require(size == other.size, "can't merge two differentes sized countTable")
       val newTable = table.zipWithIndex.map(f => f._1 + other.getCount(f._2))
       Count1DTable[A](newTable)
     }
-
   }
-  object Count1DTable{
-    def apply[A](size : Int): Count1DTable[A] = Count1DTable[A](Vector.fill[Long](size)(0L))
+
+  object Count1DTable {
+    def apply[A](size: Int): Count1DTable[A] = Count1DTable[A](Vector.fill[Long](size)(0L))
   }
 
 }
