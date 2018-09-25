@@ -16,6 +16,11 @@ famous algorithm in abstract algebra with cats and Algebird
 
 * [Cuckoo Filter](https://www.cs.cmu.edu/~dga/papers/cuckoo-conext2014.pdf)
 
+
+## Clustering
+
+* [BIRCH](https://en.wikipedia.org/wiki/BIRCH)
+
 ## Why create something like that ?
 
 ### Mono.. what ?
