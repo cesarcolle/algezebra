@@ -34,8 +34,75 @@ class EntropySketchMonoid[A: CMSHasher](eps : Double, seed: Long) extends Monoid
   override def zero: ES[A] = ESZero[A](params, 0)
 
   override def plus(x: ES[A], y: ES[A]): ES[A] = x ++ y
+
+  def create(item : A) : ES[A] = ESItem(item, 1,  params)
+
+  override def sumOption(iter: TraversableOnce[ES[A]]): Option[ES[A]] = {
+    if(iter.isEmpty) None
+
+    else {
+      var sets = 0
+      var count = 0L
+      var count1DTable = Count1DTable[A](params.k)
+
+      var oneItem : ESItem[A] = null
+
+      @inline def addItem(esItem : ESItem[A]): Count1DTable[A] = {
+        oneItem = esItem
+        val it = params.hash().apply(esItem.item)
+        val rd = new Random(it)
+        val newTable =
+          (0 until params.k).foldLeft(count1DTable) {
+            (table, j) =>
+              val skew = ESFunctions.maxSkew(rd)
+              table + (j, skew * count)
+          }
+        count += esItem.count
+        newTable
+      }
+
+      iter.foreach({
+        case ESZero(_, _) => ()
+        case item @ESItem(_,_,_)  => count1DTable = addItem(item)
+        case instances @ESInstances(_, instancesCount, countTable) =>
+          count += instancesCount
+          sets += countTable.size
+          count1DTable = count1DTable ++ countTable
+      })
+
+      if(sets == 0) Some(zero)
+      else if (sets == 1) Some(oneItem)
+      else Some(ESInstances[A](params, count, count1DTable))
+    }
+
+  }
+
+  def create(data : Seq[A]) : ES[A] = {
+    sum(data.map(ESItem(_, 1, params)))
+  }
 }
 
+
+object ESFunctions {
+
+  /**
+    * from : http://proceedings.mlr.press/v31/clifford13a.pdf p 198 (or p 3 of the pdf file)
+    * Table 1 : Algorithm to simulate from the maximally skewed stable distribution F(x; 1, -1, PI / 2 , 0)
+    **/
+  def maxSkew(rand : Random): Double = {
+
+    val r1 = rand.nextDouble()
+    val r2 = rand.nextDouble()
+
+    val w1 = Math.PI * (r1 * 0.5)
+    val w2 = Math.PI * (r2 * 0.5)
+
+    val halfPiW1 = Math.PI / 2 - w1
+
+    Math.tan(w1) * halfPiW1 + (Math.log(w2 * (Math.cos(w1) / halfPiW1)) / Math.log(2))
+  }
+
+}
 
 case class EntropySketchParams[K: CMSHasher](eps : Double) {
 
@@ -112,28 +179,14 @@ case class ESInstances[A](params: EntropySketchParams[A],  override val count : 
     val newTable =
       (0 until params.k).foldLeft(countTable) {
         (table, j) =>
-          val skew = maxSkew(rd)
+          val skew = ESFunctions.maxSkew(rd)
           table + (j, skew * count)
       }
     new ESInstances[A](params, this.count + count, newTable)
   }
 
-  /**
-    * from : http://proceedings.mlr.press/v31/clifford13a.pdf p 198 (or p 3 of the pdf file)
-    * Table 1 : Algorithm to simulate from the maximally skewed stable distribution F(x; 1, -1, PI / 2 , 0)
-    **/
-  private def maxSkew(rand : Random): Double = {
 
-    val r1 = rand.nextDouble()
-    val r2 = rand.nextDouble()
 
-    val w1 = Math.PI * (r1 * 0.5)
-    val w2 = Math.PI * (r2 * 0.5)
-
-    val halfPiW1 = Math.PI / 2 - w1
-
-    Math.tan(w1) * halfPiW1 + (Math.log(w2 * (Math.cos(w1) / halfPiW1)) / Math.log(2))
-  }
 }
 
 object ESInstances {
