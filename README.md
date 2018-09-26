@@ -19,7 +19,7 @@ famous algorithm in abstract algebra with cats and Algebird
 
 ## Clustering
 
-* [BIRCH](https://en.wikipedia.org/wiki/BIRCH)
+* [BIRCH](https://github.com/perdisci/jbirch)
 
 ## Why create something like that ?
 
