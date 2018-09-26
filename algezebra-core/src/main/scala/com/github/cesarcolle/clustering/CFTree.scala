@@ -199,7 +199,7 @@ case class CFNode(maxEntries: Int, distThreshold: Double,
         val lastHead = h.last._1.last
         h ++
           List[(Vector[CFEntry], Double)](Vector[CFEntry](lastHead, otherEnry), lastHead.distance(otherEnry, distFunction))
-    }.minBy(f => f._2)
+    }.maxBy(f => f._2)
 
     Some(CFEntryPair(entriesMin._1(0), entriesMin._1(1)))
   }
