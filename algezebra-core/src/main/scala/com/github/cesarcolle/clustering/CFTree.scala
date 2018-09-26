@@ -134,6 +134,8 @@ case class CFEntry(n: Int, sumX: Vector[Double], sumX2: Vector[Double],
 
 }
 
+case class CFEntryPair(e1: CFEntry, e2 : CFEntry) {}
+
 object CFNode {
 
 }
@@ -151,6 +153,56 @@ case class CFNode(maxEntries: Int, distThreshold: Double,
   def size: Int = entries.size
   def isDummy : Boolean = (maxEntries eq 0) && (distThreshold eq 0) && (this.size eq 0) && (previousLeaf.isDefined || nextLeaf.isDefined)
 
+
+  def findClosestEntry(entry : CFEntry) : CFEntry = {
+    entries.minBy(f => f.distance(entry, distFunction))
+  }
+
+  def insertEntry(cFEntry: CFEntry) : Option[CFNode] = {
+    if(entries.isEmpty) {
+      return Option(CFNode(maxEntries, distThreshold, distFunction, merging, leafStatus, entries.+:(cFEntry)))
+    }
+    val closest = findClosestEntry(cFEntry)
+
+    closest.child match {
+      case None =>
+        // NO CHILD !!
+
+      case Some(entryChild) =>
+        // I have a child !
+        entryChild.insertEntry(cFEntry) match {
+          case None => // Don't split !
+            val splitPair : CFEntryPair = null
+
+          case Some(entry) => // I split
+            val index = entries.indexOf(closest)
+            entries.updated(index, closest.update(cFEntry))
+            return Option(this)
+        }
+    }
+    None
+  }
+
+  private def splitEntry(closest: CFEntry) : CFEntryPair = {
+    // we are sure here there is a child
+    val oldNode : CFNode =closest.child.get
+    val oldEntries = oldNode.entries
+    null
+  }
+
+  private def findFarthestEntryPair(entries : Vector[CFEntry]) :  Option[CFEntryPair] = {
+    if (entries.size < 2) return None
+    val (heads, tails) = entries.splitAt(2)
+
+    val entriesMin = tails.foldLeft( List[(Vector[CFEntry], Double)]( (heads, heads(0).distance(heads(1), distFunction)) )) {
+      (h, otherEnry) =>
+        val lastHead = h.last._1.last
+        h ++
+          List[(Vector[CFEntry], Double)](Vector[CFEntry](lastHead, otherEnry), lastHead.distance(otherEnry, distFunction))
+    }.minBy(f => f._2)
+
+    Some(CFEntryPair(entriesMin._1(0), entriesMin._1(1)))
+  }
 
 
 }
