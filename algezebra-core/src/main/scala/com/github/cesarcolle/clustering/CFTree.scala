@@ -4,10 +4,10 @@ sealed trait DistFunction {
   def distance(e1: CFEntry, e2: CFEntry): Double
 
 
-  def add4Vectors(v1 : Vector[Double], v2 : Vector[Double],  v3: Vector[Double], v4 : Vector[Double]) : Vector[(Double, Double)] = {
+  def add4Vectors(v1: Vector[Double], v2: Vector[Double], v3: Vector[Double], v4: Vector[Double]): Vector[(Double, Double)] = {
     (v1 zip v2 zip v3 zip v4)
       .map { case (((a, b), c), d) => (a, b, c, d) }
-      .map(tuples => (tuples._1 + tuples._2, tuples._3 + tuples._4 ))
+      .map(tuples => (tuples._1 + tuples._2, tuples._3 + tuples._4))
   }
 }
 
@@ -50,9 +50,9 @@ case class DistThree() extends DistFunction {
     val n1 = e1.n
     val n2 = e1.n
 
-    val flatX1 =add4Vectors(e1.sumX, e2.sumX, e1.sumX2, e2.sumX2)
+    val flatX1 = add4Vectors(e1.sumX, e2.sumX, e1.sumX2, e2.sumX2)
     val dist = flatX1.map(totX => ((n1 + n2) * totX._2 - 2 * Math.pow(totX._1, 2) + (n1 + n2) * totX._2)
-      / ((n1 + n2)* (n1 + n2 -1) )).sum
+      / ((n1 + n2) * (n1 + n2 - 1))).sum
     require(dist > 0, "distOne can't be negative")
 
     dist
@@ -61,18 +61,22 @@ case class DistThree() extends DistFunction {
 
 case class DistFour() extends DistFunction {
   override def distance(e1: CFEntry, e2: CFEntry): Double = {
-      val n1 = e1.n
-      val n2 = e2.n
-     val tots = add4Vectors(e1.sumX, e2.sumX, e1.sumX2, e2.sumX2)
-//    double diff1 = totSumX2[i] - 2*totSumX[i]*totSumX[i]/(n1+n2) + (n1+n2)*(totSumX[i]/(n1+n2))*(totSumX[i]/(n1+n2));
-//    double diff2 = e1.sumX2[i] - 2*e1.sumX[i]*e1.sumX[i]/n1 + n1*(e1.sumX[i]/n1)*(e1.sumX[i]/n1);
-//    double diff3 = e2.sumX2[i] - 2*e2.sumX[i]*e2.sumX[i]/n2 + n2*(e2.sumX[i]/n2)*(e2.sumX[i]/n2);
-//    dist += diff1 - diff2 - diff3;
-    tots.map { tot =>
-      val diff1 = tot._2 - 2 * tot._1 * tot._1 / (n1 + n2) + (n1 + n2) * (tot._1 / n1 + n2) * (tot._1 / (n1 + n2))
-      1
-    }
+    val n1 = e1.n
+    val n2 = e2.n
+    val tots = add4Vectors(e1.sumX, e2.sumX, e1.sumX2, e2.sumX2)
+    val dist = e1.sumX.zipWithIndex.map { e1Value =>
+      val e1SumX = e1Value._1
+      val idx = e1Value._2
 
+      val diff1 = tots(idx)._2 - 2 * tots(idx)._1 * tots(idx)._1 / (n1 + n2) + (n1 + n2) *
+        (tots(idx)._1 / n1 + n2) * (tots(idx)._1 / (n1 + n2))
+      val diff2 = e1.sumX2(idx) - 2 * e1SumX / n1 + n1 * (e1SumX / n1) * (e1SumX / n1)
+      val diff3 = e2.sumX2(idx) - 2 * Math.pow(e2.sumX(idx), 2) / n2 + n2 * Math.pow(e2.sumX(idx) / n2, 2)
+
+      diff1 - diff2 - diff3
+    }.sum
+    require(dist > 0, "distOne can't be negative")
+    Math.sqrt(dist)
   }
 }
 
