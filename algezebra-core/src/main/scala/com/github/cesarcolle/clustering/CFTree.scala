@@ -3,7 +3,6 @@ package com.github.cesarcolle.clustering
 sealed trait DistFunction {
   def distance(e1: CFEntry, e2: CFEntry): Double
 
-
   def add4Vectors(v1: Vector[Double], v2: Vector[Double], v3: Vector[Double], v4: Vector[Double]): Vector[(Double, Double)] = {
     (v1 zip v2 zip v3 zip v4)
       .map { case (((a, b), c), d) => (a, b, c, d) }
@@ -11,7 +10,7 @@ sealed trait DistFunction {
   }
 }
 
-case class DistZero() extends DistFunction {
+object DistZero extends DistFunction {
   override def distance(e1: CFEntry, e2: CFEntry): Double = {
     require(e1.sumX.size == e2.sumX.size, "can't compute dist on different Entries ...")
 
@@ -21,7 +20,7 @@ case class DistZero() extends DistFunction {
   }
 }
 
-case class DistOne() extends DistFunction {
+object DistOne extends DistFunction {
   override def distance(e1: CFEntry, e2: CFEntry): Double = {
     require(e1.sumX.size == e2.sumX.size, "can't compute dist on different Entries ...")
     val dist = e1.sumX.zip(e2.sumX).map(sums => (sums._1 / e1.n - sums._2 / e2.n).abs).sum
@@ -31,7 +30,7 @@ case class DistOne() extends DistFunction {
   }
 }
 
-case class DistTwo() extends DistFunction {
+object DistTwo extends DistFunction {
   override def distance(e1: CFEntry, e2: CFEntry): Double = {
     require(e1.sumX.size == e2.sumX.size, "can't compute dist on different Entries ...")
     val n1 = e1.n
@@ -45,7 +44,7 @@ case class DistTwo() extends DistFunction {
   }
 }
 
-case class DistThree() extends DistFunction {
+object DistThree extends DistFunction {
   override def distance(e1: CFEntry, e2: CFEntry): Double = {
     val n1 = e1.n
     val n2 = e1.n
@@ -59,7 +58,7 @@ case class DistThree() extends DistFunction {
   }
 }
 
-case class DistFour() extends DistFunction {
+object DistFour extends DistFunction {
   override def distance(e1: CFEntry, e2: CFEntry): Double = {
     val n1 = e1.n
     val n2 = e2.n
@@ -79,15 +78,6 @@ case class DistFour() extends DistFunction {
     Math.sqrt(dist)
   }
 }
-
-
-case class CFNode(maxEntries: Int, distThreshold: Double,
-                  distFunction: DistFunction,
-                  merging: Boolean,
-                  leafStatus: Boolean,
-                  entries: Vector[CFEntry] = Vector.empty[CFEntry]) {
-}
-
 object CFEntry {
   def apply(): CFEntry = new CFEntry(0, Vector.empty[Double], Vector.empty[Double])
 
@@ -124,10 +114,44 @@ case class CFEntry(n: Int, sumX: Vector[Double], sumX2: Vector[Double],
   }
 
   def addToChild(cFEntry: CFEntry): CFEntry = {
-    val newChild = child.fold(Vector.empty[CFEntry])(node =>
+    val entriesChild = child.fold(Vector.empty[CFEntry])(node =>
       node.entries ++ cFEntry.child.fold(Vector.empty[CFEntry])(_.entries))
-    CFEntry()
+    val newChild = child.map(f => CFNode(f.maxEntries, f.distThreshold, f.distFunction, f.merging, f.leafStatus, entriesChild))
+    new CFEntry(n, sumX, sumX2, index, newChild)
   }
+
+  def isWithinThreshold(e: CFEntry, threshold: Double, distFunction: DistFunction): Boolean = {
+    val dist = distance(e, distFunction)
+
+    if (dist == 0 || dist <= threshold) // read the comments in function d0() about differences with implementation in R
+      return true
+    false
+  }
+
+  def distance(e: CFEntry, func: DistFunction): Double = {
+    func.distance(this, e)
+  }
+
+}
+
+object CFNode {
+
+}
+
+case class CFNode(maxEntries: Int, distThreshold: Double,
+                  distFunction: DistFunction,
+                  merging: Boolean,
+                  leafStatus: Boolean,
+                  entries: Vector[CFEntry] = Vector.empty[CFEntry]) {
+
+  private var nextLeaf : Option[CFNode]= None
+  private var previousLeaf : Option[CFNode]= None
+
+
+  def size: Int = entries.size
+  def isDummy : Boolean = (maxEntries eq 0) && (distThreshold eq 0) && (this.size eq 0) && (previousLeaf.isDefined || nextLeaf.isDefined)
+
+
 
 }
 
