@@ -78,8 +78,11 @@ object DistFour extends DistFunction {
     Math.sqrt(dist)
   }
 }
+
 object CFEntry {
   def apply(): CFEntry = new CFEntry(0, Vector.empty[Double], Vector.empty[Double])
+
+  def apply(child: CFNode) = new CFEntry(0, Vector.empty[Double], Vector.empty[Double], child = Option(child))
 
   def apply(n: Int, sumX: Vector[Double], sumX2: Vector[Double]): CFEntry = new CFEntry(n, sumX, sumX2)
 
@@ -132,9 +135,16 @@ case class CFEntry(n: Int, sumX: Vector[Double], sumX2: Vector[Double],
     func.distance(this, e)
   }
 
+  def childSize() : Int = {
+    child match {
+      case None => Int.MaxValue
+      case node => node.get.entries.size
+    }
+  }
+
 }
 
-case class CFEntryPair(e1: CFEntry, e2 : CFEntry) {}
+case class CFEntryPair(e1: CFEntry, e2: CFEntry) {}
 
 object CFNode {
 
@@ -146,33 +156,32 @@ case class CFNode(maxEntries: Int, distThreshold: Double,
                   leafStatus: Boolean,
                   entries: Vector[CFEntry] = Vector.empty[CFEntry]) {
 
-  private var nextLeaf : Option[CFNode]= None
-  private var previousLeaf : Option[CFNode]= None
+  private var nextLeaf: Option[CFNode] = None
+  private var previousLeaf: Option[CFNode] = None
 
+  def isDummy: Boolean = (maxEntries eq 0) && (distThreshold eq 0) && (this.size eq 0) && (previousLeaf.isDefined || nextLeaf.isDefined)
 
   def size: Int = entries.size
-  def isDummy : Boolean = (maxEntries eq 0) && (distThreshold eq 0) && (this.size eq 0) && (previousLeaf.isDefined || nextLeaf.isDefined)
 
-
-  def findClosestEntry(entry : CFEntry) : CFEntry = {
+  def findClosestEntry(entry: CFEntry): CFEntry = {
     entries.minBy(f => f.distance(entry, distFunction))
   }
 
-  def insertEntry(cFEntry: CFEntry) : Option[CFNode] = {
-    if(entries.isEmpty) {
+  def insertEntry(cFEntry: CFEntry): Option[CFNode] = {
+    if (entries.isEmpty) {
       return Option(CFNode(maxEntries, distThreshold, distFunction, merging, leafStatus, entries.+:(cFEntry)))
     }
     val closest = findClosestEntry(cFEntry)
 
     closest.child match {
       case None =>
-        // NO CHILD !!
+      // NO CHILD !!
 
       case Some(entryChild) =>
         // I have a child !
         entryChild.insertEntry(cFEntry) match {
           case None => // Don't split !
-            val splitPair : CFEntryPair = null
+            val splitPair: CFEntryPair = splitEntry(closest)
 
           case Some(entry) => // I split
             val index = entries.indexOf(closest)
@@ -183,18 +192,80 @@ case class CFNode(maxEntries: Int, distThreshold: Double,
     None
   }
 
-  private def splitEntry(closest: CFEntry) : CFEntryPair = {
+  def isLeaf(): Boolean = leafStatus
+
+  private def splitEntry(closest: CFEntry): CFEntryPair = {
     // we are sure here there is a child
-    val oldNode : CFNode =closest.child.get
+    val oldNode: CFNode = closest.child.get
     val oldEntries = oldNode.entries
+    val p = findFarthestEntryPair(oldEntries)
+
+    val newNode1 = new CFNode(maxEntries, distThreshold, distFunction, merging, oldNode.isLeaf())
+    var entry1 = CFEntry(child = newNode1)
+
+
     null
   }
 
-  private def findFarthestEntryPair(entries : Vector[CFEntry]) :  Option[CFEntryPair] = {
+  private def redistributeEntries(oldEntries: Vector[CFEntry], pair: CFEntryPair,
+                                  newE1: CFEntry, newE2: CFEntry): (CFEntry, CFEntry) = {
+    oldEntries.foldLeft((newE1, newE2)) {
+      (previous, entry) =>
+        val dist1 = pair.e1.distance(entry, distFunction)
+        val dist2 = pair.e2.distance(entry, distFunction)
+
+        if (dist1 < dist2) {
+          return (previous._1.addToChild(entry).addToChild(entry), previous._2)
+        }
+        else {
+          return (previous._1, previous._2.addToChild(entry).addToChild(entry))
+        }
+    }
+  }
+
+
+  // 	protected void redistributeEntries(ArrayList<CFEntry> oldEntries1, ArrayList<CFEntry> oldEntries2, CFEntryPair closeEntries, CFEntry newE1, CFEntry newE2)
+  private def redistributeEntries(oldEntry1: Vector[CFEntry], oldEntry2: Vector[CFEntry],
+                                  closeEntry: CFEntryPair, newE1: CFEntry, newE2: CFEntry) = {
+
+    val allOldEntries = oldEntry1 ++ oldEntry2
+    allOldEntries.foldLeft((newE1, newE2)) {
+      (previous, entry) => {
+        // To be move
+        val dist1 = closeEntry.e1.distance(entry, distFunction)
+        val dist2 = closeEntry.e2.distance(entry, distFunction)
+
+        if(dist1 <= dist2) {
+          if (previous._1.childSize() < maxEntries)
+            (previous._1.addToChild(entry).update(entry), previous._2)
+          else {
+            (previous._1, previous._2.addToChild(entry).update(entry))
+          }
+        }
+        else if (dist1 < dist2) {
+          if (previous._2.childSize() < maxEntries) (previous._1, previous._2.addToChild(entry).update(entry))
+          else (previous._1.addToChild(entry).update(entry), previous._2)
+        }
+        else{
+          previous
+        }
+      }
+    }
+  }
+
+  def redistributeEntries(oldEntry1: Vector[CFEntry], oldEntry2 : Vector[CFEntry], newE : CFEntry) : CFEntry = {
+    val allOldEntries = oldEntry1 ++ oldEntry2
+    allOldEntries.foldLeft(newE) {
+      (prev, next) => prev.addToChild(next).update(next)
+    }
+  }
+
+
+  private def findFarthestEntryPair(entries: Vector[CFEntry]): Option[CFEntryPair] = {
     if (entries.size < 2) return None
     val (heads, tails) = entries.splitAt(2)
 
-    val entriesMin = tails.foldLeft( List[(Vector[CFEntry], Double)]( (heads, heads(0).distance(heads(1), distFunction)) )) {
+    val entriesMin = tails.foldLeft(List[(Vector[CFEntry], Double)]((heads, heads(0).distance(heads(1), distFunction)))) {
       (h, otherEnry) =>
         val lastHead = h.last._1.last
         h ++
