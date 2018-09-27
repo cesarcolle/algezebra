@@ -147,17 +147,23 @@ case class CFEntry(n: Int, sumX: Vector[Double], sumX2: Vector[Double],
 case class CFEntryPair(e1: CFEntry, e2: CFEntry) {}
 
 object CFNode {
+  def apply(maxEtry: Int, distThrsld : Double, distfunc : DistFunction,
+    mrg : Boolean, leafStatus : Boolean, entries : Vector[CFEntry]) : CFNode = {
+    val node = CFNode(maxEtry, distThrsld, distfunc, mrg, leafStatus)
+    node.entries = entries
+    node
+  }
 
 }
 
 case class CFNode(maxEntries: Int, distThreshold: Double,
                   distFunction: DistFunction,
                   merging: Boolean,
-                  leafStatus: Boolean,
-                  entries: Vector[CFEntry] = Vector.empty[CFEntry]) {
+                  leafStatus: Boolean) {
 
-  private var nextLeaf: Option[CFNode] = None
-  private var previousLeaf: Option[CFNode] = None
+  var entries: Vector[CFEntry] = Vector.empty[CFEntry]
+  var nextLeaf: Option[CFNode] = None
+  var previousLeaf: Option[CFNode] = None
 
   def isDummy: Boolean = (maxEntries eq 0) && (distThreshold eq 0) && (this.size eq 0) && (previousLeaf.isDefined || nextLeaf.isDefined)
 
@@ -194,6 +200,8 @@ case class CFNode(maxEntries: Int, distThreshold: Double,
 
   def isLeaf(): Boolean = leafStatus
 
+
+  // this is not so functional.
   private def splitEntry(closest: CFEntry): CFEntryPair = {
     // we are sure here there is a child
     val oldNode: CFNode = closest.child.get
@@ -203,8 +211,36 @@ case class CFNode(maxEntries: Int, distThreshold: Double,
     val newNode1 = new CFNode(maxEntries, distThreshold, distFunction, merging, oldNode.isLeaf())
     var entry1 = CFEntry(child = newNode1)
 
+    val newNode2 = new CFNode(maxEntries, distThreshold, distFunction, merging, oldNode.isLeaf())
+    var entry2 = CFEntry(child = newNode2)
 
-    null
+
+
+    if (oldNode.isLeaf()) {
+      val previousNode = oldNode.previousLeaf
+      val nextNode = oldNode.nextLeaf
+
+      previousNode match {
+        case None =>
+        case Some(node) => node.nextLeaf = Some(newNode1)
+      }
+      nextNode match {
+        case None =>
+        case Some(node) => node.previousLeaf = Some(newNode2)
+      }
+
+      newNode1.previousLeaf = previousNode
+      newNode1.nextLeaf = Some(newNode2)
+
+      newNode2.previousLeaf = Some(newNode1)
+      newNode2.nextLeaf = nextNode
+
+    }
+
+    val redistributed = redistributeEntries(oldEntries, p.get, entry1, entry2)
+    entries =  entries.filter(entry => entry == closest ).+:(redistributed._1).+:(redistributed._2)
+
+    return CFEntryPair(redistributed._1, redistributed._2)
   }
 
   private def redistributeEntries(oldEntries: Vector[CFEntry], pair: CFEntryPair,
@@ -223,8 +259,6 @@ case class CFNode(maxEntries: Int, distThreshold: Double,
     }
   }
 
-
-  // 	protected void redistributeEntries(ArrayList<CFEntry> oldEntries1, ArrayList<CFEntry> oldEntries2, CFEntryPair closeEntries, CFEntry newE1, CFEntry newE2)
   private def redistributeEntries(oldEntry1: Vector[CFEntry], oldEntry2: Vector[CFEntry],
                                   closeEntry: CFEntryPair, newE1: CFEntry, newE2: CFEntry) = {
 
