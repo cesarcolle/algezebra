@@ -189,6 +189,17 @@ case class CFNode(maxEntries: Int, distThreshold: Double,
           case None => // Don't split !
             val splitPair: CFEntryPair = splitEntry(closest)
 
+            if(entries.size > maxEntries )
+              None
+            else{
+              if (merging){
+
+              }
+
+
+            }
+
+
           case Some(entry) => // I split
             val index = entries.indexOf(closest)
             entries.updated(index, closest.update(cFEntry))
@@ -307,6 +318,32 @@ case class CFNode(maxEntries: Int, distThreshold: Double,
     }.maxBy(f => f._2)
 
     Some(CFEntryPair(entriesMin._1(0), entriesMin._1(1)))
+  }
+
+
+  private def mergingRefinement(entryPair : CFEntryPair) : Unit = {
+    val nodeEntries = entries
+    val pair = findFarthestEntryPair(nodeEntries)
+
+    pair match {
+      case None =>
+      case Some(p) =>
+        if (p == entryPair) return
+
+        val oldNode1 = p.e1.child
+        val oldNode2 = p.e2.child
+
+        val oldNodeEntries1 = oldNode1.get.entries
+        val oldNodeEntries2 = oldNode2.get.entries
+
+        require(oldNode1.get.isLeaf() != oldNode2.get.isLeaf(), "Node at same level must have same leaf status!")
+
+        if (oldNodeEntries1.size + oldNodeEntries2.size  > maxEntries) {
+          val newEntry = CFEntry()
+          
+        }
+    }
+
   }
 
 
