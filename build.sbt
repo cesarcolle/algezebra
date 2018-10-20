@@ -29,14 +29,14 @@ lazy val algezebraCore: Project = project
   .in(file("algezebra-core"))
   .settings(sharedSettings)
   .settings(
-    name := "noether-core",
-    moduleName := "noether-core",
+    name := "algzzebra-core",
+    moduleName := "algzzebra-core",
     description := "Machine Learning Aggregators",
     libraryDependencies ++= Seq(
       "com.twitter" %% "algebird-core" % "0.13.4",
       "org.scalatest" %% "scalatest" % scalaTestVersion,
-"com.googlecode.javaewah" % "JavaEWAH" % javaEwahVersion,
-"org.scalacheck" %% "scalacheck" % scalacheckVersion
+      "com.googlecode.javaewah" % "JavaEWAH" % javaEwahVersion,
+      "org.scalacheck" %% "scalacheck" % scalacheckVersion
     ),
     fork in Test := true
   )
@@ -52,6 +52,6 @@ lazy val algezebraBenchmark = project
 val algezebra = Project(
   id = "algezebra",
   base = file("."))
-    .settings(sharedSettings)
+  .settings(sharedSettings)
   .settings(coverageExcludedPackages := "<empty>;.*\\.benchmark\\..*")
   .aggregate(algezebraCore, algezebraBenchmark)
