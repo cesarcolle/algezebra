@@ -255,6 +255,18 @@ case class CFNode(maxEntries: Int, distThreshold: Double,
     }
   }
 
+  private def replaceClosestPaireWithNewMergedEntry(pair : CFEntryPair, newEntry : CFEntry): Unit = {
+
+    entries.zipWithIndex.foreach(entry => {
+      if (entry._1 == pair.e1)
+        entries = entries.updated(entry._2, newEntry)
+    else
+      entries = entries.drop(entry._2)
+    }
+
+    )
+  }
+
 
   // this is not so functional.
   private def splitEntry(closest: CFEntry): CFEntryPair = {
@@ -427,9 +439,12 @@ case class CFNode(maxEntries: Int, distThreshold: Double,
             newNode.setNext(oldNode1.nextLeaf.get)
 
             var dummy = new CFNode(0, 0, DistZero, false, true)
-
+            oldNode2.previousLeaf.foreach(_.setNext(dummy))
+            oldNode1.previousLeaf.foreach(_.setNext(dummy))
 
           }
+
+          replaceClosestPaireWithNewMergedEntry(p, newEntry)
 
         }
     }
