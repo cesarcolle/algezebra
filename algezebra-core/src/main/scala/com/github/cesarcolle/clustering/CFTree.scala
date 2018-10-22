@@ -443,7 +443,6 @@ case class CFNode(maxEntries: Int, distThreshold: Double,
             oldNode1.previousLeaf.foreach(_.setNext(dummy))
 
           }
-
           replaceClosestPaireWithNewMergedEntry(p, newEntry)
 
         }
