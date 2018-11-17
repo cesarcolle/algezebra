@@ -199,8 +199,6 @@ case class CFNode(maxEntries: Int,
     this.copy(nextLeaf = Some(newNext))
   }
 
-  def isDummy: Boolean = (maxEntries eq 0) && (distThreshold eq 0) && (this.size eq 0) && (previousLeaf.isDefined || nextLeaf.isDefined)
-
   def size: Int = entries.size
 
   def findClosestEntry(entry: CFEntry): CFEntry = {
@@ -213,42 +211,44 @@ case class CFNode(maxEntries: Int,
       .orElse(closest.subclusterID).get
   }
 
-  def insertEntry(cFEntry: CFEntry): Option[CFNode] = {
-    if (entries.isEmpty) return Some(this.copy(entries = entries :+ cFEntry))
+  def insertEntry(cFEntry: CFEntry): Option[(CFNode, Boolean)] = {
+    if (entries.isEmpty) return Some(this.copy(entries = entries :+ cFEntry), true)
 
     val closest = findClosestEntry(cFEntry)
     val idxClosest = entries.indexOf(closest)
 
-    closest.child.map(child => {
-      child.insertEntry(cFEntry)
-        .map(f =>
-          this.copy(entries = entries.updated(idxClosest, closest.update(cFEntry)))
-        ).orElse {
-        val split = splitEntry(closest)
+    closest.child.map {
+      child =>
+        child.insertEntry(cFEntry)
+          .map(f =>
+            (this.copy(entries = entries.updated(idxClosest, closest.update(cFEntry))), true)
+          ).orElse {
 
-        split.map {
-          splitResult =>
-            if (splitResult._1.entries.size > maxEntries)
-              Some(this)
-            else if (merging) {
-              mergingRefinement(splitResult._2)
-            }
+          val split = splitEntry(closest)
+          return split.map {
+            splitResult =>
+              if (splitResult._1.entries.size > maxEntries)
+                return Some(this, false)
+              else {
+                if (merging)
+                  return mergingRefinement(splitResult._2).map((_, true))
+                return Some( this, true)
+              }
+          }.getOrElse(Some(this, true))
+
         }
+    }.getOrElse {
 
+      if(closest.isWithinThreshold(cFEntry, distThreshold, distFunction))
+        return Some(this.copy(entries = entries.updated(idxClosest, closest.update(cFEntry))), true)
 
-        null
-
+      else if (entries.size < maxEntries) {
+        return Some(this.copy(entries = entries :+ cFEntry), true)
       }
-
-
-    })
-
-
-    if (closest.child.isDefined) {
-      val closestIdx = entries.indexOf(closest)
-      return Some(this.copy(entries = entries.updated(closestIdx, closest.update(cFEntry))))
+      else {
+        return Some(this.copy(entries = entries :+ cFEntry), false)
+      }
     }
-null
 
   }
 
@@ -325,7 +325,7 @@ null
   }
 
   private def redistributeEntries(oldEntry1: Vector[CFEntry], oldEntry2: Vector[CFEntry],
-                                  closeEntry: CFEntryPair, newE1: CFEntry, newE2: CFEntry) : (CFEntry, CFEntry) = {
+                                  closeEntry: CFEntryPair, newE1: CFEntry, newE2: CFEntry): (CFEntry, CFEntry) = {
 
     val allOldEntries = oldEntry1 ++ oldEntry2
     allOldEntries.foldLeft((newE1, newE2)) {
@@ -383,34 +383,33 @@ null
       else {
         (p.e1.child, p.e2.child) match {
           case (Some(e1Child), Some(e2Child)) =>
-            if(e1Child.isLeaf() != e1Child.isLeaf())
+            if (e1Child.isLeaf() != e1Child.isLeaf())
               return None
-            if(e1Child.entries.size + e2Child.entries.size > maxEntries) {
+            if (e1Child.entries.size + e2Child.entries.size > maxEntries) {
               val newEntry1 = CFEntry().setChild(e1Child.copy(entries = Vector.empty[CFEntry]))
               val newEntry2 = CFEntry().setChild(e2Child.copy(entries = Vector.empty[CFEntry]))
               val redistribued = redistributeEntries(e1Child.entries, e2Child.entries, p, newEntry1, newEntry2)
               return Some(replaceClosestPairWithNewEntries(p, redistribued._1, redistribued._2))
             } else {
 
-              var newNode = CFNode(maxEntries,distThreshold, distFunction, merging, leafStatus)
-              var newEntry = CFEntry().setChild(newNode)
-              newEntry = redistributeEntries(e1Child.entries, e2Child.entries, newEntry)
-              // TODO : ITS WRONG
-              if(e1Child.isLeaf() && e2Child.isLeaf()) {
-                val oldNode = e1Child.copy(previousLeaf = e1Child.previousLeaf.map(prev => prev.setNext(newNode)),
-                  nextLeaf = e1Child.nextLeaf.map(next => next.setPrevious(newNode)))
+              var newNode = CFNode(maxEntries, distThreshold, distFunction, merging, leafStatus)
+              if (e1Child.isLeaf() && e2Child.isLeaf()) {
+                val oldNode = e1Child.copy(
+                  previousLeaf = e1Child.previousLeaf.map(prev => prev.setNext(newNode)),
+                  nextLeaf = e1Child.nextLeaf.map(next => next.setPrevious(newNode))
+                )
                 newNode = newNode.copy(previousLeaf = oldNode.previousLeaf, nextLeaf = oldNode.nextLeaf)
               }
+              var newEntry = CFEntry().setChild(newNode)
+              newEntry = redistributeEntries(e1Child.entries, e2Child.entries, newEntry)
+
               replaceClosestPairWithNewMergedEntry(p, newEntry)
 
             }
           case _ => None
-
-
         }
       }
-
-        return None
+      return None
     }
   }
 }
