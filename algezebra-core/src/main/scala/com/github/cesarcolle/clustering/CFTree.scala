@@ -94,18 +94,12 @@ object DistFour extends DistFunction {
 object CFEntry {
   def apply(): CFEntry = new CFEntry(0, Vector.empty[Double], Vector.empty[Double])
 
-  def apply(child: CFNode) = new CFEntry(0, Vector.empty[Double], Vector.empty[Double], child = Option(child))
+  def apply(child: CFNode) = new CFEntry( 0, Vector.empty[Double], Vector.empty[Double], child = Option(child))
 
-  def apply(n: Int, sumX: Vector[Double], sumX2: Vector[Double],
-            index: Option[Vector[Int]] = None,
-            child: Option[CFNode] = None): CFEntry = new CFEntry(n, sumX, sumX2, index, child)
-
-  def apply(n: Int, sumX: Vector[Double], sumX2: Vector[Double]): CFEntry = new CFEntry(n, sumX, sumX2)
 
   def apply(index: Int, data: Vector[Double]): CFEntry = {
     val sumX2 = data.map(d => d * d)
-    val indexes = Vector(index)
-    new CFEntry(0, data, sumX2, Some(indexes))
+    new CFEntry(0, data, sumX2, index = Some(Vector[Int](index)))
   }
 
 }
@@ -170,7 +164,7 @@ case class CFEntryPair(e1: CFEntry, e2: CFEntry) {}
 object CFNode {
   def apply(maxEtry: Int, distThrsld: Double, distfunc: DistFunction,
             mrg: Boolean, leafStatus: Boolean, entries: Vector[CFEntry]): CFNode = {
-    val node = CFNode(maxEtry, distThrsld, distfunc, mrg, leafStatus, entries)
+    val node = new CFNode(maxEtry, distThrsld, distfunc, mrg, leafStatus, entries)
     node
   }
 
@@ -284,18 +278,17 @@ case class CFNode(maxEntries: Int,
     val newNode2 = CFNode(maxEntries, distThreshold, distFunction, merging, oldNode.isLeaf())
     val entry2 = CFEntry(child = newNode2)
 
-    if (oldNode.isLeaf()) {
-      case true =>
-        val (prevNode, nxtNode) = (oldNode.previousLeaf, oldNode.nextLeaf) match {
-          case (Some(previous), Some(next)) => (Some(previous.copy(nextLeaf = Some(newNode1))), Some(next.copy(previousLeaf = Some(newNode2))))
-          case (None, Some(next)) => (None, Some(next.copy(previousLeaf = Some(newNode2))))
-          case (Some(prev), None) => (Some(prev.copy(nextLeaf = Some(newNode1))), None)
-          case _ => (None, None)
-        }
-        (newNode1.copy(previousLeaf = prevNode, nextLeaf = Some(newNode2)),
-          newNode2.copy(previousLeaf = Some(newNode1), nextLeaf = nxtNode))
+    val newNodes = if (oldNode.isLeaf()) {
+      val (prevNode, nxtNode) = (oldNode.previousLeaf, oldNode.nextLeaf) match {
+        case (Some(previous), Some(next)) => (Some(previous.copy(nextLeaf = Some(newNode1))), Some(next.copy(previousLeaf = Some(newNode2))))
+        case (None, Some(next)) => (None, Some(next.copy(previousLeaf = Some(newNode2))))
+        case (Some(prev), None) => (Some(prev.copy(nextLeaf = Some(newNode1))), None)
+        case _ => (None, None)
+      }
+      (newNode1.copy(previousLeaf = prevNode, nextLeaf = Some(newNode2)),
+        newNode2.copy(previousLeaf = Some(newNode1), nextLeaf = nxtNode))
+    } else (newNode1, newNode2)
 
-    }
     p.map(redistributeEntries(oldEntries, _, entry1, entry2) match {
       case (redistributedEntry1, redistributedEntry2) =>
         (
@@ -368,7 +361,7 @@ case class CFNode(maxEntries: Int,
       (h, otherEnry) =>
         val lastHead = h.last._1.last
         h ++
-          List[(Vector[CFEntry], Double)](Vector[CFEntry](lastHead, otherEnry), lastHead.distance(otherEnry, distFunction))
+          List[(Vector[CFEntry], Double)]((Vector[CFEntry](lastHead, otherEnry), lastHead.distance(otherEnry, distFunction)))
     }.maxBy(f => f._2)
 
     Some(CFEntryPair(entriesMin._1(0), entriesMin._1(1)))
@@ -416,5 +409,8 @@ case class CFNode(maxEntries: Int,
 
 
 class CFTree {
+
+
+
 
 }
