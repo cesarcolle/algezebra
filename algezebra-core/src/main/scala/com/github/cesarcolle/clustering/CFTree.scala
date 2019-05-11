@@ -96,7 +96,6 @@ object CFEntry {
 
   def apply(child: CFNode) = new CFEntry( 0, Vector.empty[Double], Vector.empty[Double], child = Option(child))
 
-
   def apply(index: Int, data: Vector[Double]): CFEntry = {
     val sumX2 = data.map(d => d * d)
     new CFEntry(0, data, sumX2, index = Some(Vector[Int](index)))
@@ -353,7 +352,7 @@ case class CFNode(maxEntries: Int,
   }
 
 
-  private def findFarthestEntryPair(entries: Vector[CFEntry]): Option[CFEntryPair] = {
+  def findFarthestEntryPair(entries: Vector[CFEntry]): Option[CFEntryPair] = {
     if (entries.size < 2) return None
     val (heads, tails) = entries.splitAt(2)
 
@@ -379,12 +378,13 @@ case class CFNode(maxEntries: Int,
             if (e1Child.isLeaf() != e1Child.isLeaf())
               return None
             if (e1Child.entries.size + e2Child.entries.size > maxEntries) {
+
               val newEntry1 = CFEntry().setChild(e1Child.copy(entries = Vector.empty[CFEntry]))
               val newEntry2 = CFEntry().setChild(e2Child.copy(entries = Vector.empty[CFEntry]))
+
               val redistribued = redistributeEntries(e1Child.entries, e2Child.entries, p, newEntry1, newEntry2)
               return Some(replaceClosestPairWithNewEntries(p, redistribued._1, redistribued._2))
             } else {
-
               var newNode = CFNode(maxEntries, distThreshold, distFunction, merging, leafStatus)
               if (e1Child.isLeaf() && e2Child.isLeaf()) {
                 val oldNode = e1Child.copy(
@@ -395,7 +395,6 @@ case class CFNode(maxEntries: Int,
               }
               var newEntry = CFEntry().setChild(newNode)
               newEntry = redistributeEntries(e1Child.entries, e2Child.entries, newEntry)
-
               replaceClosestPairWithNewMergedEntry(p, newEntry)
 
             }
@@ -408,7 +407,36 @@ case class CFNode(maxEntries: Int,
 }
 
 
-class CFTree {
+case class CFTree(maxEntries : Int,
+                  distTreshold : Double,
+                  distFunction : DistFunction,
+                  merging : Boolean,
+                  root : CFNode,
+                  leafListPoint : Option[CFNode] = None,
+                  instanceIndex : Int = 0) {
+
+  val memLimit: Double = scala.math.pow(1024, 3)
+
+
+  def splitRoot( ) : CFTree = {
+
+    val farthest  = root.findFarthestEntryPair(root.entries)
+
+    val newEntry1 =  CFEntry().setChild(root.copy(entries = Vector.empty[CFEntry]))
+    val newEntry2 =  CFEntry().setChild(root.copy(entries = Vector.empty[CFEntry]))
+
+    val newRoot = root.copy(leafStatus = false, entries = root.entries :+ newEntry1 :+ newEntry2)
+
+    if (root.isLeaf()) {
+
+
+    }
+
+
+
+    System.gc()
+    this.copy(root = newRoot)
+  }
 
 
 

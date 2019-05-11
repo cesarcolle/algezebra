@@ -252,6 +252,24 @@ case class CFItem[A](cFHash: CFHash[A], fingerPrintBucket: Int, totalBuckets: In
 
 }
 
+case class CFSparse[A](cfHash : CFHash[A], cuckooBitSet : Array[CBitSet], fingerPrintBucket : Int, totalBuckets : Int = 256) extends CF[A] {
+  override val bucketNumber: Int = _
+  override val fingerprintBucket: Int = _
+
+  override def ++(other: CF[A]): CF[A] = ???
+
+  override def +(other: A): CF[A] = ???
+
+  override def -(other: A): CF[A] = ???
+
+  override def delete(item: A): Boolean = ???
+
+  override def lookup(item: A): Boolean = ???
+
+  override def size: Int = ???
+}
+
+
 /**
   * Multiple items cuckoo
   **/
