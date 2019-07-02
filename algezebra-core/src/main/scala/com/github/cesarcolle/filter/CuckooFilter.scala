@@ -5,7 +5,7 @@ import com.googlecode.javaewah.{IntIterator, EWAHCompressedBitmap => CBitSet}
 import com.twitter.algebird.{Hash128, Monoid, MonoidAggregator, MurmurHash128}
 
 import scala.util.Random
-
+import com.twitter.algebird.RichCBitSet._
 /**
   * Cuckoo filter for Algebird in a Monoid way of life.
   * referring :
@@ -252,11 +252,28 @@ case class CFItem[A](cFHash: CFHash[A], fingerPrintBucket: Int, totalBuckets: In
 
 }
 
-case class CFSparse[A](cfHash : CFHash[A], cuckooBitSet : Array[CBitSet], fingerPrintBucket : Int, totalBuckets : Int = 256) extends CF[A] {
-  override val bucketNumber: Int = _
-  override val fingerprintBucket: Int = _
+/**
+  *
+  * A Sparse state of a cuckoo filter meaning that
+  * */
 
-  override def ++(other: CF[A]): CF[A] = ???
+case class CFSparse[A](cfHash : CFHash[A], cuckooBitSet : CBitSet, fingerPrintBucket : Int, totalBuckets : Int = 256) extends CF[A] {
+
+
+  override def ++(other: CF[A]): CF[A] = {
+    require(other.bucketNumber == bucketNumber)
+    require(other.fingerprintBucket == fingerprintBucket)
+/*    other match {
+      case CFInstance(_, _, _, _) =>
+
+      case CFItem(_, _, _, _) =>
+      case CFSparse(_, _, _, _) =>
+      case CFZero(_, _, _) =>
+
+    }*/
+
+    ???
+  }
 
   override def +(other: A): CF[A] = ???
 
@@ -267,6 +284,11 @@ case class CFSparse[A](cfHash : CFHash[A], cuckooBitSet : Array[CBitSet], finger
   override def lookup(item: A): Boolean = ???
 
   override def size: Int = ???
+
+  def dense : CFInstance[A] = new CFInstance[A](cfHash, Array(), fingerPrintBucket, totalBuckets)
+
+  override val bucketNumber: Int = totalBuckets
+  override val fingerprintBucket: Int = fingerPrintBucket
 }
 
 
@@ -321,6 +343,7 @@ case class CFInstance[A](hash: CFHash[A],
       for (n <- 0 until maxKicks) {
         val fingerprintKicked = swapRandomFingerprint(index, fp)
         // partial cuckoo hash key
+
         index = (index ^ hash.hashfingerprint(fingerprintKicked)) % totalBuckets
         if (insertFingerprint(index, fingerprintKicked)) {
           return true
